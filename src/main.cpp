@@ -3,6 +3,7 @@
 #include <cstring>
 #include <iostream>
 #include <netdb.h>
+#include <netinet/in.h>
 #include <string>
 #include <sys/socket.h>
 #include <sys/types.h>
@@ -60,6 +61,14 @@ int main(int argc, char *argv[]) {
   int client_fd =
       accept(server_fd, reinterpret_cast<struct sockaddr *>(&client_addr),
              &client_addr_len);
+
+  std::uint32_t size = htonl(0);
+  std::uint32_t correlation_id = htonl(7);
+
+  std::cout << "SIZE: " << std::to_string(size).c_str() << "\n";
+
+  send(client_fd, &size, sizeof(size), 0);
+  send(client_fd, &correlation_id, sizeof(correlation_id), 0);
   std::cout << "Client connected\n";
   close(client_fd);
 
