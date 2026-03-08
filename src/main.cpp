@@ -1,4 +1,5 @@
 #include <arpa/inet.h>
+#include <cstdint>
 #include <cstdlib>
 #include <cstring>
 #include <iostream>
@@ -70,10 +71,8 @@ int main(int argc, char *argv[]) {
     std::cout << "Error: No message recieved" << std::endl;
   }
 
-  std::cout << "BUFFER: " << buffer << "\n";
-
   std::uint32_t size = htonl(0);
-  std::uint32_t correlation_id = htonl(7);
+  std::uint32_t correlation_id = *(uint32_t *)(buffer + 8);
   send(client_fd, &size, sizeof(size), 0);
   send(client_fd, &correlation_id, sizeof(correlation_id), 0);
 
