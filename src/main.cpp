@@ -72,9 +72,19 @@ int main(int argc, char *argv[]) {
   }
 
   std::uint32_t size = htonl(0);
-  std::uint32_t correlation_id = *(uint32_t *)(buffer + 8);
+  std::uint32_t correlation_id;
+  std::uint16_t api_ver;
+  std::memcpy(&api_ver, buffer + 6, sizeof(std::uint16_t));
+  api_ver = ntohs(api_ver);
+  std::memcpy(&correlation_id, buffer + 8, sizeof(std::uint32_t));
+
   send(client_fd, &size, sizeof(size), 0);
   send(client_fd, &correlation_id, sizeof(correlation_id), 0);
+  std::uint16_t error_code;
+  if (api_ver < 0 || api_ver > 4) {
+    error_code = htons(35);
+  }
+  send(client_fd, &error_code, sizeof(error_code), 0);
 
   close(client_fd);
 
