@@ -71,23 +71,50 @@ int main(int argc, char *argv[]) {
     std::cout << "Error: No message recieved" << std::endl;
   }
 
-  std::uint32_t size = htonl(0);
+  std::uint32_t size;
   std::uint32_t correlation_id;
   std::uint16_t api_ver;
+  std::uint16_t api_key;
+
+  std::memcpy(&api_key, buffer + 4, sizeof(std::uint16_t));
+  api_key = ntohs(api_key);
   std::memcpy(&api_ver, buffer + 6, sizeof(std::uint16_t));
   api_ver = ntohs(api_ver);
-  std::memcpy(&correlation_id, buffer + 8, sizeof(std::uint32_t));
 
-  send(client_fd, &size, sizeof(size), 0);
-  send(client_fd, &correlation_id, sizeof(correlation_id), 0);
+  std::memcpy(&correlation_id, buffer + 8, sizeof(std::uint32_t));
+  size = sizeof(correlation_id);
+
   std::uint16_t error_code;
   if (api_ver < 0 || api_ver > 4) {
     error_code = htons(35);
+  } else {
+    error_code = htons(0);
   }
+
+  std::uint8_t length = 0x02;
+  std::uint16_t key = htons(18);
+  std::uint16_t min = htons(0);
+  std::uint16_t max = htons(4);
+  std::uint8_t api_tag = 0x00;
+  std::uint32_t throttle_time = htonl(0);
+  std::uint8_t tag = 0x00;
+
+  size += sizeof(error_code) + sizeof(length) + sizeof(key) + sizeof(min) +
+          sizeof(max) + sizeof(api_tag) + sizeof(throttle_time) + sizeof(tag);
+
+  size = htonl(size);
+  send(client_fd, &size, sizeof(size), 0);
+  send(client_fd, &correlation_id, sizeof(correlation_id), 0);
   send(client_fd, &error_code, sizeof(error_code), 0);
+  send(client_fd, &length, sizeof(length), 0);
+  send(client_fd, &key, sizeof(key), 0);
+  send(client_fd, &min, sizeof(min), 0);
+  send(client_fd, &max, sizeof(max), 0);
+  send(client_fd, &api_tag, sizeof(api_tag), 0);
+  send(client_fd, &throttle_time, sizeof(throttle_time), 0);
+  send(client_fd, &tag, sizeof(tag), 0);
 
   close(client_fd);
-
   close(server_fd);
   return 0;
 }
