@@ -106,6 +106,7 @@ int main(int argc, char *argv[]) {
       std::uint16_t api_key;
       std::uint16_t error_code;
       std::string temp{buffer};
+      std::cout << "String: " << temp << "\n";
       struct timeval tv;
 
       std::memcpy(&api_key, buffer + 4, sizeof(std::uint16_t));
