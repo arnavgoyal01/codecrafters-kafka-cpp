@@ -105,6 +105,7 @@ int main(int argc, char *argv[]) {
       std::uint16_t api_ver;
       std::uint16_t api_key;
       std::uint16_t error_code;
+      std::string temp{buffer};
       struct timeval tv;
 
       std::memcpy(&api_key, buffer + 4, sizeof(std::uint16_t));
@@ -118,39 +119,62 @@ int main(int argc, char *argv[]) {
       if (api_ver < 0 || api_ver > 4) {
         error_code = htons(35);
       } else {
-        error_code = htons(0);
+        error_code = htons(3);
       }
 
-      std::uint8_t length = 0x03;
-      std::uint16_t key = htons(18);
-      std::uint16_t min = htons(0);
-      std::uint16_t max = htons(4);
-      std::uint8_t api_tag = 0x00;
-      std::uint16_t key2 = htons(75);
-      std::uint16_t min2 = htons(0);
-      std::uint16_t max2 = htons(0);
+      std::uint8_t topics_array = static_cast<std::uint8_t>(1);
+      // std::uint16_t key = htons(18);
+      // std::uint16_t min = htons(0);
+      // std::uint16_t max = htons(4);
+      // std::uint8_t api_tag = 0x00;
+      // std::uint16_t key2 = htons(75);
+      // std::uint16_t min2 = htons(0);
+      // std::uint16_t max2 = htons(0);
       std::uint32_t throttle_time = htonl(0);
       std::uint8_t tag = 0x00;
+      std::uint8_t is_internal = 0x00;
+      std::uint8_t partitions_array = static_cast<std::uint8_t>(0);
+      std::uint32_t topic_authorized_operations = htonl(0);
+      std::uint8_t cursor = static_cast<std::uint8_t>(-1);
+      std::string topic_id = "00000000000000000000000000000000";
+      int start = 52;
+      int count = 0;
+      while (temp.substr(start, 2) != "00") {
+        count += 2;
+        start += 2;
+      }
+      std::string topic_name = temp.substr(52, count);
+      std::uint8_t name_length = topic_name.length() / 2;
 
-      size += sizeof(error_code) + sizeof(length) + sizeof(key) + sizeof(min) +
-              sizeof(max) + sizeof(api_tag) + sizeof(key) + sizeof(min) +
-              sizeof(max) + sizeof(api_tag) + sizeof(throttle_time) +
-              sizeof(tag);
+      size += sizeof(tag) + sizeof(throttle_time) + sizeof(topics_array) +
+              sizeof(error_code) + sizeof(name_length) +
+              sizeof(topic_name) / 2 + sizeof(topic_id) / 2 +
+              sizeof(is_internal) + sizeof(partitions_array) +
+              sizeof(topic_authorized_operations) + sizeof(tag) +
+              sizeof(cursor) + sizeof(tag);
       size = htonl(size);
 
       send(client_fd, &size, sizeof(size), 0);
       send(client_fd, &correlation_id, sizeof(correlation_id), 0);
-      send(client_fd, &error_code, sizeof(error_code), 0);
-      send(client_fd, &length, sizeof(length), 0);
-      send(client_fd, &key, sizeof(key), 0);
-      send(client_fd, &min, sizeof(min), 0);
-      send(client_fd, &max, sizeof(max), 0);
-      send(client_fd, &api_tag, sizeof(api_tag), 0);
-      send(client_fd, &key2, sizeof(key2), 0);
-      send(client_fd, &min2, sizeof(min2), 0);
-      send(client_fd, &max2, sizeof(max2), 0);
-      send(client_fd, &api_tag, sizeof(api_tag), 0);
+      send(client_fd, &tag, sizeof(tag), 0);
       send(client_fd, &throttle_time, sizeof(throttle_time), 0);
+      send(client_fd, &topics_array, sizeof(topics_array), 0);
+      send(client_fd, &error_code, sizeof(error_code), 0);
+      send(client_fd, &name_length, sizeof(name_length), 0);
+      send(client_fd, topic_name.c_str(), sizeof(topic_name), 0);
+      send(client_fd, topic_id.c_str(), sizeof(topic_id), 0);
+      send(client_fd, &is_internal, sizeof(is_internal), 0);
+      send(client_fd, &partitions_array, sizeof(partitions_array), 0);
+      send(client_fd, &topic_authorized_operations,
+           sizeof(topic_authorized_operations), 0);
+      // send(client_fd, &api_tag, sizeof(api_tag), 0);
+      // send(client_fd, &key2, sizeof(key2), 0);
+      // send(client_fd, &min2, sizeof(min2), 0);
+      // send(client_fd, &max2, sizeof(max2), 0);
+      // send(client_fd, &api_tag, sizeof(api_tag), 0);
+      // send(client_fd, &throttle_time, sizeof(throttle_time), 0);
+      send(client_fd, &tag, sizeof(tag), 0);
+      send(client_fd, &cursor, sizeof(cursor), 0);
       send(client_fd, &tag, sizeof(tag), 0);
 
       bzero(buffer, 256);
