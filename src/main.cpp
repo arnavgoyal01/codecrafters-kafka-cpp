@@ -121,15 +121,19 @@ int main(int argc, char *argv[]) {
         error_code = htons(0);
       }
 
-      std::uint8_t length = 0x02;
+      std::uint8_t length = 0x03;
       std::uint16_t key = htons(18);
       std::uint16_t min = htons(0);
       std::uint16_t max = htons(4);
       std::uint8_t api_tag = 0x00;
+      std::uint16_t key2 = htons(75);
+      std::uint16_t min2 = htons(0);
+      std::uint16_t max2 = htons(0);
       std::uint32_t throttle_time = htonl(0);
       std::uint8_t tag = 0x00;
 
       size += sizeof(error_code) + sizeof(length) + sizeof(key) + sizeof(min) +
+              sizeof(max) + sizeof(api_tag) + sizeof(key) + sizeof(min) +
               sizeof(max) + sizeof(api_tag) + sizeof(throttle_time) +
               sizeof(tag);
       size = htonl(size);
@@ -141,6 +145,10 @@ int main(int argc, char *argv[]) {
       send(client_fd, &key, sizeof(key), 0);
       send(client_fd, &min, sizeof(min), 0);
       send(client_fd, &max, sizeof(max), 0);
+      send(client_fd, &api_tag, sizeof(api_tag), 0);
+      send(client_fd, &key2, sizeof(key2), 0);
+      send(client_fd, &min2, sizeof(min2), 0);
+      send(client_fd, &max2, sizeof(max2), 0);
       send(client_fd, &api_tag, sizeof(api_tag), 0);
       send(client_fd, &throttle_time, sizeof(throttle_time), 0);
       send(client_fd, &tag, sizeof(tag), 0);
