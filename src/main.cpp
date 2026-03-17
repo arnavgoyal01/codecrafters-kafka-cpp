@@ -7,9 +7,12 @@
 #include <netinet/in.h>
 #include <ostream>
 #include <string>
+#include <strings.h>
+#include <sys/select.h>
 #include <sys/socket.h>
 #include <sys/types.h>
 #include <unistd.h>
+#include <vector>
 
 int main(int argc, char *argv[]) {
   // Disable output buffering
@@ -53,73 +56,114 @@ int main(int argc, char *argv[]) {
 
   std::cout << "Waiting for a client to connect...\n";
 
-  struct sockaddr_in client_addr {};
-  socklen_t client_addr_len = sizeof(client_addr);
-
-  // You can use print statements as follows for debugging, they'll be visible
-  // when running tests.
-  std::cerr << "Logs from your program will appear here!\n";
-
-  int client_fd =
-      accept(server_fd, reinterpret_cast<struct sockaddr *>(&client_addr),
-             &client_addr_len);
-  std::cout << "Client connected\n";
-
+  fd_set masterfds;
+  std::vector<int> clientfds;
+  int maxfd;
   char buffer[256];
-  int r = recv(client_fd, buffer, sizeof(buffer), 0);
-  if (r < 0) {
-    std::cout << "Error: No message recieved" << std::endl;
-  }
+  int p = 1;
 
-  while (r != 0) {
-    std::uint32_t size;
-    std::uint32_t correlation_id;
-    std::uint16_t api_ver;
-    std::uint16_t api_key;
+  while (p != clientfds.size()) {
+    p = clientfds.size();
+    FD_ZERO(&masterfds);
+    FD_SET(server_fd, &masterfds);
+    maxfd = server_fd;
+    for (auto cfd : clientfds) {
+      FD_SET(cfd, &masterfds);
+      if (cfd > maxfd)
+        maxfd = cfd;
+    }
+    int activity = select(maxfd + 1, &masterfds, NULL, NULL, NULL);
 
-    std::memcpy(&api_key, buffer + 4, sizeof(std::uint16_t));
-    api_key = ntohs(api_key);
-    std::memcpy(&api_ver, buffer + 6, sizeof(std::uint16_t));
-    api_ver = ntohs(api_ver);
-
-    std::memcpy(&correlation_id, buffer + 8, sizeof(std::uint32_t));
-    size = sizeof(correlation_id);
-
-    std::uint16_t error_code;
-    if (api_ver < 0 || api_ver > 4) {
-      error_code = htons(35);
-    } else {
-      error_code = htons(0);
+    if (activity < 0) {
+      std::cerr << "select error\n";
+      std::cout << "Error code: " << errno << " Num of client fds "
+                << clientfds.size() << "\n";
     }
 
-    std::uint8_t length = 0x02;
-    std::uint16_t key = htons(18);
-    std::uint16_t min = htons(0);
-    std::uint16_t max = htons(4);
-    std::uint8_t api_tag = 0x00;
-    std::uint32_t throttle_time = htonl(0);
-    std::uint8_t tag = 0x00;
-
-    size += sizeof(error_code) + sizeof(length) + sizeof(key) + sizeof(min) +
-            sizeof(max) + sizeof(api_tag) + sizeof(throttle_time) + sizeof(tag);
-
-    size = htonl(size);
-    send(client_fd, &size, sizeof(size), 0);
-    send(client_fd, &correlation_id, sizeof(correlation_id), 0);
-    send(client_fd, &error_code, sizeof(error_code), 0);
-    send(client_fd, &length, sizeof(length), 0);
-    send(client_fd, &key, sizeof(key), 0);
-    send(client_fd, &min, sizeof(min), 0);
-    send(client_fd, &max, sizeof(max), 0);
-    send(client_fd, &api_tag, sizeof(api_tag), 0);
-    send(client_fd, &throttle_time, sizeof(throttle_time), 0);
-    send(client_fd, &tag, sizeof(tag), 0);
-
-    bzero(buffer, 256);
-    r = recv(client_fd, buffer, sizeof(buffer), 0);
+    if (FD_ISSET(server_fd, &masterfds)) {
+      struct sockaddr_in client_addr;
+      int client_addr_len = sizeof(client_addr);
+      int client_fd1 = accept(server_fd, (struct sockaddr *)&client_addr,
+                              (socklen_t *)&client_addr_len);
+      if (client_fd1 < 0) {
+        std::cerr << "client 1 accept failed\n";
+      }
+      clientfds.push_back(client_fd1);
+    }
   }
 
-  close(client_fd);
+  for (int client_fd : clientfds) {
+    bzero(buffer, 256);
+    int r = recv(client_fd, buffer, sizeof(buffer), 0);
+    if (r < 0) {
+      std::cout << "Error: No message recieved" << std::endl;
+    }
+
+    while (r > 0) {
+      std::uint32_t size;
+      std::uint32_t correlation_id;
+      std::uint16_t api_ver;
+      std::uint16_t api_key;
+      std::uint16_t error_code;
+      struct timeval tv;
+
+      std::memcpy(&api_key, buffer + 4, sizeof(std::uint16_t));
+      api_key = ntohs(api_key);
+      std::memcpy(&api_ver, buffer + 6, sizeof(std::uint16_t));
+      api_ver = ntohs(api_ver);
+
+      std::memcpy(&correlation_id, buffer + 8, sizeof(std::uint32_t));
+      size = sizeof(correlation_id);
+
+      if (api_ver < 0 || api_ver > 4) {
+        error_code = htons(35);
+      } else {
+        error_code = htons(0);
+      }
+
+      std::uint8_t length = 0x02;
+      std::uint16_t key = htons(18);
+      std::uint16_t min = htons(0);
+      std::uint16_t max = htons(4);
+      std::uint8_t api_tag = 0x00;
+      std::uint32_t throttle_time = htonl(0);
+      std::uint8_t tag = 0x00;
+
+      size += sizeof(error_code) + sizeof(length) + sizeof(key) + sizeof(min) +
+              sizeof(max) + sizeof(api_tag) + sizeof(throttle_time) +
+              sizeof(tag);
+      size = htonl(size);
+
+      send(client_fd, &size, sizeof(size), 0);
+      send(client_fd, &correlation_id, sizeof(correlation_id), 0);
+      send(client_fd, &error_code, sizeof(error_code), 0);
+      send(client_fd, &length, sizeof(length), 0);
+      send(client_fd, &key, sizeof(key), 0);
+      send(client_fd, &min, sizeof(min), 0);
+      send(client_fd, &max, sizeof(max), 0);
+      send(client_fd, &api_tag, sizeof(api_tag), 0);
+      send(client_fd, &throttle_time, sizeof(throttle_time), 0);
+      send(client_fd, &tag, sizeof(tag), 0);
+
+      bzero(buffer, 256);
+      r = 0;
+
+      tv.tv_sec = 1;
+      tv.tv_usec = 0;
+      int activity = select(maxfd + 1, &masterfds, NULL, NULL, &tv);
+      if (activity < 0) {
+        std::cout << "Select error\n";
+      }
+      if (FD_ISSET(client_fd, &masterfds)) {
+        r = recv(client_fd, buffer, sizeof(buffer), 0);
+      }
+    }
+  }
+
+  for (int client_fd : clientfds) {
+    close(client_fd);
+  }
+
   close(server_fd);
   return 0;
 }
